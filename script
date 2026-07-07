@@ -1,0 +1,161 @@
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+local lockedTarget = nil
+local isLocked = false
+local tpDistance = 4
+local minimized = false
+
+-- ==================== UI ====================
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "ProtoTracker"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- 메인 프레임
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 180, 0, 70)
+mainFrame.Position = UDim2.new(1, -200, 0, 10)
+mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+mainFrame.Parent = screenGui
+
+Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 8)
+
+-- On/Off 버튼
+local toggleButton = Instance.new("TextButton")
+toggleButton.Size = UDim2.new(0.85, 0, 0, 45)
+toggleButton.Position = UDim2.new(0.075, 0, 0, 12)
+toggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+toggleButton.Text = "OFF"
+toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleButton.Font = Enum.Font.GothamBold
+toggleButton.TextSize = 16
+toggleButton.Parent = mainFrame
+
+Instance.new("UICorner", toggleButton).CornerRadius = UDim.new(0, 6)
+
+-- 최소화 버튼
+local minimizeBtn = Instance.new("TextButton")
+minimizeBtn.Size = UDim2.new(0, 20, 0, 20)
+minimizeBtn.Position = UDim2.new(1, -28, 0, 8)
+minimizeBtn.BackgroundTransparency = 1
+minimizeBtn.Text = "−"
+minimizeBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+minimizeBtn.Font = Enum.Font.GothamBold
+minimizeBtn.TextSize = 18
+minimizeBtn.Parent = mainFrame
+
+-- 최소화 상태
+local miniFrame = Instance.new("Frame")
+miniFrame.Size = UDim2.new(0, 160, 0, 28)
+miniFrame.Position = UDim2.new(1, -170, 0, 10)
+miniFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+miniFrame.Visible = false
+miniFrame.Parent = screenGui
+
+Instance.new("UICorner", miniFrame).CornerRadius = UDim.new(0, 6)
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, 0, 1, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "Proto-crack-arcode"
+titleLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+titleLabel.Font = Enum.Font.Gotham
+titleLabel.TextSize = 13
+titleLabel.Parent = miniFrame
+
+-- ==================== 타겟 관련 ====================
+local function getRandomTarget()
+    local candidates = {}
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            table.insert(candidates, p)
+        end
+    end
+    if #candidates > 0 then
+        return candidates[math.random(1, #candidates)]
+    end
+    return nil
+end
+
+local function isTargetValid(target)
+    if not target then return false end
+    local char = target.Character
+    if not char then return false end
+    local humanoid = char:FindFirstChild("Humanoid")
+    return humanoid and humanoid.Health > 0
+end
+
+-- ==================== UI 업데이트 ====================
+local function updateToggleUI()
+    if isLocked then
+        toggleButton.Text = "ON"
+        toggleButton.BackgroundColor3 = Color3.fromRGB(50, 180, 50)
+    else
+        toggleButton.Text = "OFF"
+        toggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    end
+end
+
+-- ==================== 버튼 연결 ====================
+toggleButton.MouseButton1Click:Connect(function()
+    isLocked = not isLocked
+    if isLocked then
+        lockedTarget = getRandomTarget()
+    else
+        lockedTarget = nil
+    end
+    updateToggleUI()
+end)
+
+minimizeBtn.MouseButton1Click:Connect(function()
+    minimized = true
+    mainFrame.Visible = false
+    miniFrame.Visible = true
+end)
+
+miniFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        minimized = false
+        mainFrame.Visible = true
+        miniFrame.Visible = false
+    end
+end)
+
+-- ==================== 메인 루프 ====================
+RunService.RenderStepped:Connect(function()
+    if not isLocked or not lockedTarget then return end
+
+    if not isTargetValid(lockedTarget) then
+        lockedTarget = getRandomTarget()
+        if not lockedTarget then
+            isLocked = false
+            updateToggleUI()
+            return
+        end
+    end
+
+    local targetChar = lockedTarget.Character
+    local myChar = player.Character
+    
+    if targetChar and myChar then
+        local hrp = targetChar:FindFirstChild("HumanoidRootPart")
+        local head = targetChar:FindFirstChild("Head")
+        local myHrp = myChar:FindFirstChild("HumanoidRootPart")
+
+        if hrp and head and myHrp then
+            -- 에임락
+            camera.CFrame = CFrame.new(camera.CFrame.Position, head.Position)
+            
+            -- 뒤로 TP
+            local backPos = hrp.Position - (hrp.CFrame.LookVector * tpDistance)
+            myHrp.CFrame = CFrame.new(backPos, hrp.Position)
+        end
+    end
+end)
+
+updateToggleUI()
+print("✅ Proto-crack-arcode Random Tracker 로드됨")
